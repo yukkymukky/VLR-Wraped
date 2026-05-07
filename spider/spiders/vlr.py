@@ -1,7 +1,7 @@
 import re
 import scrapy
 from spider.items import VlrItem
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class UserPostsSpider(scrapy.Spider):
@@ -39,38 +39,84 @@ class UserPostsSpider(scrapy.Spider):
                 break
 
         page_links = response.css('a.btn.mod-page::attr(href)').getall()
-        last_page = int(page_links[-1].split('=')[-1]) if page_links else 1
+        self.last_page = int(page_links[-1].split('=')[-1]) if page_links else 1
 
-        for page in range(1, last_page + 1):
-            yield response.follow(
-                f'/user/{self.username}/?page={page}',
-                callback=self.parse_user_page
-            )
+        # start lazy pagination from page 1
+        yield response.follow(
+            f'/user/{self.username}/?page=1',
+            callback=self.parse_user_page,
+            cb_kwargs={'page': 1}
+        )
 
-    async def parse_user_page(self, response):
+    async def parse_user_page(self, response, page=1):
         cards = response.css('div.wf-card.ge-text-light')
+        all_too_old = True
+
         for card in cards:
-            link = card.css('a::attr(href)').get('')
-            if not link or '/post/' not in link:
+            link = card.css('a[href*="/post/"]::attr(href)').get('')
+            if not link:
                 continue
 
             if self.year:
-                # get the relative date text e.g. "posted 3 days ago", "posted about a year ago"
-                date_text = ' '.join(card.css('div[style*="font-size: 12px"]::text').getall()).strip().lower()
+                # the date is always in the last div child of the card
+                date_text = card.css('div:last-child::text').getall()
+                date_text = ' '.join(t.strip() for t in date_text).strip().lower()
+                approx_dt = self._approx_date_from_relative(date_text)
 
-                # classify: "about a year ago" ~ 2025, "about 2 years ago" ~ 2024, etc.
-                # "minutes/hours/days/weeks/months ago" = current year (2026)
-                if 'year' in date_text:
-                    match = re.search(r'about (\d+) year', date_text)
-                    years_ago = int(match.group(1)) if match else 1
-                    approx_year = 2026 - years_ago
-                else:
-                    approx_year = 2026  # minutes/hours/days/weeks/months ago = current year
+                if approx_dt is not None:
+                    year_start = datetime(self.year, 1, 1)
+                    year_end   = datetime(self.year, 12, 31)
+                    # 90-day grace since vlr relative dates are fuzzy and can bleed across year boundaries
+                    if approx_dt + timedelta(days=90) < year_start:
+                        # too old even with grace - skip
+                        continue
+                    if approx_dt > year_end:
+                        # too recent - skip but keep paginating
+                        all_too_old = False
+                        continue
 
-                if approx_year != self.year:
-                    continue
+                all_too_old = False
+                yield response.follow(link, callback=self.parse_discussion)
+            else:
+                all_too_old = False
+                yield response.follow(link, callback=self.parse_discussion)
 
-            yield response.follow(link, callback=self.parse_discussion)
+        # stop paginating once every post on this page is older than target year
+        if not all_too_old and page < self.last_page:
+            yield response.follow(
+                f'/user/{self.username}/?page={page + 1}',
+                callback=self.parse_user_page,
+                cb_kwargs={'page': page + 1}
+            )
+
+    def _approx_date_from_relative(self, date_text):
+        # returns approximate datetime from relative date string, or None
+        now = datetime.now()
+        if not date_text:
+            return None
+        if 'minute' in date_text or 'hour' in date_text:
+            return now
+        m = re.search(r'(\d+)\s+day', date_text)
+        if m:
+            return now - timedelta(days=int(m.group(1)))
+        m = re.search(r'(\d+)\s+week', date_text)
+        if m:
+            return now - timedelta(weeks=int(m.group(1)))
+        m = re.search(r'(\d+)\s+month', date_text)
+        if m:
+            months = int(m.group(1))
+            month = now.month - months
+            year = now.year
+            while month <= 0:
+                month += 12
+                year -= 1
+            return now.replace(year=year, month=month)
+        m = re.search(r'about\s+(\d+)\s+year', date_text)
+        if m:
+            return now.replace(year=now.year - int(m.group(1)))
+        if 'year' in date_text:
+            return now.replace(year=now.year - 1)
+        return None
 
     async def parse_discussion(self, response):
         # find all posts by this user on this page
@@ -97,23 +143,24 @@ class UserPostsSpider(scrapy.Spider):
                 flair_el = post_container.css('a img.post-header-flair')
                 self.flair = flair_el.attrib.get('src', '') if flair_el else ''
 
-            # post timestamp — from js-date-toggle title attr e.g. "May 6, 2026 at 9:08 PM PDT"
-            date_title = post_container.css('span.js-date-toggle::attr(title)').get('').strip()
+            # get exact date from post-footer js-date-toggle title attr
+            date_title = post_container.css('div.post-footer span.js-date-toggle::attr(title)').get('').strip()
             post_datetime = None
             if date_title:
-                # strip timezone abbreviation at end e.g. "PDT", "UTC"
-                date_clean = ' '.join(date_title.replace(' at ', ' ').split()[:-1])
-                for fmt in ('%B %d, %Y %I:%M %p', '%B %d, %Y %H:%M'):
+                # title is like "Mar 12, 2026 at 1:48 AM CET" or "Mar 12, 2026 at 1:48 AM -05"
+                # just grab the "Mon DD, YYYY" part at the start
+                m = re.search(r'([A-Za-z]+ \d+, \d{4})', date_title)
+                if m:
                     try:
-                        post_datetime = datetime.strptime(date_clean, fmt)
-                        break
+                        post_datetime = datetime.strptime(m.group(1), '%b %d, %Y')
                     except ValueError:
                         pass
             post_year = post_datetime.year if post_datetime else None
 
-            # skip if filtering by year and post doesn't match
-            if self.year and post_year and post_year != self.year:
-                continue
+            # skip only if we definitively know it's the wrong year - if date unknown, count it
+            if self.year:
+                if post_year is not None and post_year != self.year:
+                    continue
 
             # frags
             frag_div = post_container.css('div.post-frag-count')

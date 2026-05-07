@@ -191,6 +191,7 @@ textarea#jsonPaste {
   overflow: hidden;
   min-width: 0;
   box-shadow: none;
+  position: relative;
 }
 
 .card-header {
@@ -221,6 +222,8 @@ textarea#jsonPaste {
   width: 24px;
   height: 18px;
   flex-shrink: 0;
+  display: block;
+  transform: translateY(-2px);
 }
 
 .card-username {
@@ -230,11 +233,12 @@ textarea#jsonPaste {
 }
 
 .card-flair {
-  width: 72px;
-  height: 72px;
+  width: 84px;
+  height: 84px;
   object-fit: contain;
-  border-radius: 12px;
-  background: var(--bg-block);
+  position: absolute;
+  top: 36px;
+  right: 30px;
 }
 
 .card-body {
