@@ -6,7 +6,19 @@
 import scrapy
 
 
-class SpiderItem(scrapy.Item):
-    # define the fields for your item here like:
-    # name = scrapy.Field()
-    pass
+class VlrItem(scrapy.Item):
+    username = scrapy.Field()
+    flag = scrapy.Field()
+    flair = scrapy.Field()
+
+    total_posts = scrapy.Field()
+
+    net_votes = scrapy.Field()
+    upvotes = scrapy.Field()
+    downvotes = scrapy.Field()
+    longest_streak = scrapy.Field()
+
+    # list of dicts: {url, frags, text}
+    top_posts = scrapy.Field()  
+    # list of dicts: {username, reply_count}
+    biggest_fans = scrapy.Field() 
