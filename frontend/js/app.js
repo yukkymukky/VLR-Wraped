@@ -203,7 +203,7 @@ const renderStats = (data) => {
   document.getElementById('votesSub').textContent =
     `${data.upvotes.toLocaleString()} upvotes, ${Math.abs(data.downvotes).toLocaleString()} downvotes`;
 
-  document.getElementById('statStreak').textContent = data.longest_streak.toLocaleString() + ' DAYS';
+  document.getElementById('statStreak').textContent = data.longest_streak.toLocaleString() + (data.longest_streak === 1 ? ' DAY' : ' DAYS');
   document.getElementById('statActiveMonth').textContent =
     data.most_active_month ? `Most active in ${data.most_active_month}` : '';
 };
