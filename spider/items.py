@@ -19,6 +19,8 @@ class VlrItem(scrapy.Item):
     upvotes = scrapy.Field()
     downvotes = scrapy.Field()
     longest_streak = scrapy.Field()
+    dead_posts = scrapy.Field()
+    most_active_month = scrapy.Field()
 
     top_posts = scrapy.Field()
     biggest_fans = scrapy.Field()

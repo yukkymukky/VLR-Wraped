@@ -10,7 +10,7 @@ const loadCountries = async () => {
     const res = await fetch('countries.json');
     countries = await res.json();
   } catch (err) {
-    console.warn('Could not load countries.json – flags will not be shown.', err);
+    console.warn('Could not load countries.json - flags will not be shown.', err);
   }
 };
 
@@ -100,6 +100,7 @@ const signed = (n) => (n >= 0 ? '+' : '') + n.toLocaleString();
 const renderCard = (data) => {
   renderHeader(data);
   renderStats(data);
+  renderMiniStats(data);
   renderTopPosts(data.top_posts || []);
   renderBiggestFans(data.biggest_fans || []);
 
@@ -109,6 +110,9 @@ const renderCard = (data) => {
 };
 
 const renderHeader = (data) => {
+  const titleEl = document.getElementById('cardTitle');
+  titleEl.textContent = data.year ? `VLR WRAPPED ${data.year}` : 'VLR WRAPPED LIFETIME';
+
   document.getElementById('cardFlag').innerHTML = buildFlagImg(data.flag);
   document.getElementById('cardUsername').textContent = data.username;
 
@@ -148,6 +152,38 @@ const calcPostsPerMonth = (data) => {
   return (total / monthsElapsed).toFixed(1);
 };
 
+const calcAvgDailyPosts = (data) => {
+  const total = data.total_posts;
+  if (!total) return null;
+
+  const year = data.year;
+  const now = new Date();
+
+  if (year) {
+    const isCurrentYear = year >= now.getFullYear();
+    const days = isCurrentYear
+      ? Math.ceil((now - new Date(now.getFullYear(), 0, 1)) / 86400000)
+      : (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 366 : 365);
+    return (total / days).toFixed(2);
+  }
+
+  if (!data.registered_date) return null;
+  const reg = new Date(data.registered_date);
+  if (isNaN(reg)) return null;
+  const daysElapsed = Math.max(1, Math.ceil((now - reg) / 86400000));
+  return (total / daysElapsed).toFixed(2);
+};
+
+const renderMiniStats = (data) => {
+  const avgDaily = calcAvgDailyPosts(data);
+  document.getElementById('miniAvgDaily').textContent = avgDaily ?? '—';
+
+  const deadPct = data.total_posts > 0 && data.dead_posts != null
+    ? ((data.dead_posts / data.total_posts) * 100).toFixed(2) + '%'
+    : '—';
+  document.getElementById('miniDeadPosts').textContent = deadPct;
+};
+
 const renderStats = (data) => {
   document.getElementById('statTotalPosts').textContent = data.total_posts.toLocaleString();
 
@@ -167,7 +203,9 @@ const renderStats = (data) => {
   document.getElementById('votesSub').textContent =
     `${data.upvotes.toLocaleString()} upvotes, ${Math.abs(data.downvotes).toLocaleString()} downvotes`;
 
-  document.getElementById('statStreak').textContent = data.longest_streak.toLocaleString();
+  document.getElementById('statStreak').textContent = data.longest_streak.toLocaleString() + ' DAYS';
+  document.getElementById('statActiveMonth').textContent =
+    data.most_active_month ? `Most active in ${data.most_active_month}` : '';
 };
 
 const renderTopPosts = (posts) => {

@@ -80,6 +80,7 @@ body {
 }
 
 .scrape-form input,
+.scrape-form select,
 textarea#jsonPaste {
   background: var(--bg-block);
   border: 1px solid var(--border);
@@ -97,17 +98,22 @@ textarea#jsonPaste {
 }
 
 .year-input {
-  flex: 1;
-  min-width: 0;
-  -moz-appearance: textfield;
+  flex: 0 0 130px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b91ad' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
 }
 
-.year-input::-webkit-outer-spin-button,
-.year-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
+.year-input option {
+  background: var(--bg-block);
+  color: var(--text);
 }
 
 .scrape-form input:focus,
+.scrape-form select:focus,
 textarea#jsonPaste:focus {
   border-color: var(--red);
 }
@@ -181,7 +187,7 @@ textarea#jsonPaste {
     radial-gradient(ellipse 120% 120% at 0% 0%, rgba(255, 70, 85, 0.07) 0%, transparent 60%),
     radial-gradient(circle, rgba(236, 232, 225, 0.1) 1px, transparent 1px);
   background-size: 100% 100%, 22px 22px;
-  padding: 36px 30px 20px;
+  padding: 36px 30px 15px;
   overflow: hidden;
   min-width: 0;
   box-shadow: none;
@@ -249,6 +255,8 @@ textarea#jsonPaste {
   border-left: 3px solid var(--red);
   padding: 8px 18px;
   border-radius: 8px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -265,7 +273,7 @@ textarea#jsonPaste {
 }
 
 .stat-big {
-  font-size: 3.2rem;
+  font-size: 3rem;
   font-weight: 800;
   line-height: 1;
   margin-bottom: 4px;
@@ -420,12 +428,48 @@ textarea#jsonPaste {
 }
 
 .card-footer {
-  margin-top: 22px;
+  margin-top: 10px;
   padding-top: 14px;
   border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.mini-stats-row {
+  display: flex;
+  gap: 14px;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.mini-stat {
+  flex: 1;
+    border-radius: 8px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  background: rgba(255,255,255,0.04);
+  border-left: 3px solid var(--red);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.mini-stat-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--red);
+  line-height: 1;
+}
+
+.mini-stat-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-transform: uppercase;
 }
 
 .vlr-logo {

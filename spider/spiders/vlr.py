@@ -1,3 +1,4 @@
+import re
 import scrapy
 from spider.items import VlrItem
 from datetime import datetime
@@ -23,6 +24,8 @@ class UserPostsSpider(scrapy.Spider):
         self.flag = None
         self.flair = None
         self.registered_date = None
+        self.dead_posts = 0
+        self.posts_by_month = {}
 
     async def start(self):
         yield scrapy.Request(self.start_urls[0], callback=self.parse_profile)
@@ -45,8 +48,28 @@ class UserPostsSpider(scrapy.Spider):
             )
 
     async def parse_user_page(self, response):
-        discussion_links = response.css('div.wf-card.ge-text-light a::attr(href)').getall()
-        for link in discussion_links:
+        cards = response.css('div.wf-card.ge-text-light')
+        for card in cards:
+            link = card.css('a::attr(href)').get('')
+            if not link or '/post/' not in link:
+                continue
+
+            if self.year:
+                # get the relative date text e.g. "posted 3 days ago", "posted about a year ago"
+                date_text = ' '.join(card.css('div[style*="font-size: 12px"]::text').getall()).strip().lower()
+
+                # classify: "about a year ago" ~ 2025, "about 2 years ago" ~ 2024, etc.
+                # "minutes/hours/days/weeks/months ago" = current year (2026)
+                if 'year' in date_text:
+                    match = re.search(r'about (\d+) year', date_text)
+                    years_ago = int(match.group(1)) if match else 1
+                    approx_year = 2026 - years_ago
+                else:
+                    approx_year = 2026  # minutes/hours/days/weeks/months ago = current year
+
+                if approx_year != self.year:
+                    continue
+
             yield response.follow(link, callback=self.parse_discussion)
 
     async def parse_discussion(self, response):
@@ -74,20 +97,19 @@ class UserPostsSpider(scrapy.Spider):
                 flair_el = post_container.css('a img.post-header-flair')
                 self.flair = flair_el.attrib.get('src', '') if flair_el else ''
 
-            # post timestamp — used for year filtering
-            time_el = post_container.css('div.post-header-date, span.post-header-date, div.post-date, time')
-            post_date_str = (time_el.attrib.get('data-utc-ts') or
-                             time_el.attrib.get('datetime') or
-                             time_el.css('::text').get('') or '').strip()
-            post_year = None
-            for fmt in ('%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
-                try:
-                    post_year = datetime.strptime(post_date_str[:19], fmt).year
-                    break
-                except ValueError:
-                    pass
-            if post_year is None and len(post_date_str) >= 4 and post_date_str[:4].isdigit():
-                post_year = int(post_date_str[:4])
+            # post timestamp — from js-date-toggle title attr e.g. "May 6, 2026 at 9:08 PM PDT"
+            date_title = post_container.css('span.js-date-toggle::attr(title)').get('').strip()
+            post_datetime = None
+            if date_title:
+                # strip timezone abbreviation at end e.g. "PDT", "UTC"
+                date_clean = ' '.join(date_title.replace(' at ', ' ').split()[:-1])
+                for fmt in ('%B %d, %Y %I:%M %p', '%B %d, %Y %H:%M'):
+                    try:
+                        post_datetime = datetime.strptime(date_clean, fmt)
+                        break
+                    except ValueError:
+                        pass
+            post_year = post_datetime.year if post_datetime else None
 
             # skip if filtering by year and post doesn't match
             if self.year and post_year and post_year != self.year:
@@ -112,6 +134,13 @@ class UserPostsSpider(scrapy.Spider):
                 'a.post-action.link::attr(href)'
             ).get('')
             post_url = response.urljoin(post_url)
+
+            if frags <= 0:
+                self.dead_posts += 1
+
+            if post_datetime:
+                month_key = post_datetime.strftime('%B')
+                self.posts_by_month[month_key] = self.posts_by_month.get(month_key, 0) + 1
 
             self.all_posts.append({'url': post_url, 'frags': frags, 'text': text})
 
@@ -156,6 +185,8 @@ class UserPostsSpider(scrapy.Spider):
             self.reply_users.items(), key=lambda x: x[1], reverse=True
         )[:10]
 
+        most_active_month = max(self.posts_by_month, key=self.posts_by_month.get) if self.posts_by_month else ''
+
         item = VlrItem(
             username=self.username,
             flag=self.flag or '',
@@ -167,6 +198,8 @@ class UserPostsSpider(scrapy.Spider):
             upvotes=self.upvotes,
             downvotes=self.downvotes,
             longest_streak=self._longest_streak(),
+            dead_posts=self.dead_posts,
+            most_active_month=most_active_month,
             top_posts=top5,
             biggest_fans=[{'username': u, 'reply_count': c} for u, c in top10_fans],
         )
