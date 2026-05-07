@@ -1,31 +1,39 @@
 import scrapy
 from spider.items import VlrItem
+from datetime import datetime
 
 
 class UserPostsSpider(scrapy.Spider):
     name = 'vlr'
     allowed_domains = ['vlr.gg']
 
-    def __init__(self, username=None, *args, **kwargs):
+    def __init__(self, username=None, year=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.username = username
+        self.year = int(year) if year else None
         self.start_urls = [f'https://vlr.gg/user/{username}']
 
         self.upvotes = 0
         self.downvotes = 0
-        self.all_posts = []       
-        self.reply_users = {}     
+        self.all_posts = []
+        self.reply_users = {}
         self.processed_post_ids = set()
         self.processed_reply_ids = set()
 
-        # flag/flair grabbed from first post we encounter
         self.flag = None
         self.flair = None
+        self.registered_date = None
 
     async def start(self):
         yield scrapy.Request(self.start_urls[0], callback=self.parse_profile)
 
     async def parse_profile(self, response):
+        # registered date: find the row where first <td> text is 'Registered:'
+        for row in response.css('table tr'):
+            cells = row.css('td::text').getall()
+            if len(cells) >= 2 and cells[0].strip() == 'Registered:':
+                self.registered_date = cells[1].strip()
+                break
 
         page_links = response.css('a.btn.mod-page::attr(href)').getall()
         last_page = int(page_links[-1].split('=')[-1]) if page_links else 1
@@ -65,6 +73,25 @@ class UserPostsSpider(scrapy.Spider):
             if self.flair is None:
                 flair_el = post_container.css('a img.post-header-flair')
                 self.flair = flair_el.attrib.get('src', '') if flair_el else ''
+
+            # post timestamp — used for year filtering
+            time_el = post_container.css('div.post-header-date, span.post-header-date, div.post-date, time')
+            post_date_str = (time_el.attrib.get('data-utc-ts') or
+                             time_el.attrib.get('datetime') or
+                             time_el.css('::text').get('') or '').strip()
+            post_year = None
+            for fmt in ('%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+                try:
+                    post_year = datetime.strptime(post_date_str[:19], fmt).year
+                    break
+                except ValueError:
+                    pass
+            if post_year is None and len(post_date_str) >= 4 and post_date_str[:4].isdigit():
+                post_year = int(post_date_str[:4])
+
+            # skip if filtering by year and post doesn't match
+            if self.year and post_year and post_year != self.year:
+                continue
 
             # frags
             frag_div = post_container.css('div.post-frag-count')
@@ -133,6 +160,8 @@ class UserPostsSpider(scrapy.Spider):
             username=self.username,
             flag=self.flag or '',
             flair=self.flair or '',
+            registered_date=self.registered_date or '',
+            year=self.year,
             total_posts=len(self.all_posts),
             net_votes=self.upvotes + self.downvotes,
             upvotes=self.upvotes,

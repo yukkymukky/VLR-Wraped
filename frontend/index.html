@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VLR Card</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icons/7.5.0/css/flag-icons.min.css" integrity="sha512-+WVTaUIzUw5LFzqIqXOT3JVAc5SrMuvHm230I9QAZa6s+QRk8NDPswbHo2miIZj3yiFyV9lAgzO1wVrjdoO4tw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+</head>
+<body>
+
+  <section class="input-section">
+    <form id="scrapeForm" class="scrape-form">
+      <input type="text" id="usernameInput" placeholder="vlr.gg username" autocomplete="off" spellcheck="false">
+      <input type="number" id="yearInput" placeholder="Year (blank = lifetime)" min="2010" max="2099" class="year-input">
+      <button type="submit" class="btn-submit">Generate</button>
+      <label class="btn-upload" title="Load JSON file">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <input type="file" id="fileInput" accept=".json">
+      </label>
+    </form>
+    <p class="input-status" id="scrapeStatus"></p>
+  </section>
+
+  <section class="card-section" id="cardSection" hidden>
+    <div class="card" id="card">
+
+      <header class="card-header">
+        <div class="card-header-left">
+          <p class="card-title-text">VLR WRAPPED</p>
+          <div class="card-identity">
+            <span id="cardFlag"></span>
+            <span class="card-username" id="cardUsername"></span>
+          </div>
+        </div>
+        <div class="card-header-right">
+          <img id="cardFlair" class="card-flair" src="" alt="flair" hidden>
+        </div>
+      </header>
+
+      <div class="card-body">
+
+        <div class="card-left">
+
+          <div class="stat-block">
+            <p class="stat-label">TOTAL POSTS</p>
+            <p class="stat-big" id="statTotalPosts"></p>
+            <p class="stat-sub" id="statPostsPerMonth"></p>
+          </div>
+
+          <div class="stat-block">
+            <p class="stat-label">NET VOTES</p>
+            <p class="stat-big" id="statNetVotes"></p>
+            <div class="votes-bars">
+              <div class="votes-bar-track">
+                <div class="votes-bar-fill votes-up" id="votesUp"></div>
+              </div>
+              <div class="votes-bar-track">
+                <div class="votes-bar-fill votes-down" id="votesDown"></div>
+              </div>
+            </div>
+            <p class="stat-sub" id="votesSub"></p>
+          </div>
+
+          <div class="stat-block">
+            <p class="stat-label">LONGEST STREAK</p>
+            <p class="stat-big" id="statStreak"></p>
+          </div>
+
+        </div>
+
+        <div class="card-right">
+
+          <p class="section-title">TOP POSTS BY INTERACTION</p>
+          <div class="top-posts" id="topPosts"></div>
+
+          <p class="section-title">BIGGEST FANS</p>
+          <div class="biggest-fans" id="biggestFans"></div>
+
+        </div>
+
+      </div>
+
+      <footer class="card-footer">
+        <img src="vlr.png" alt="VLR.gg" class="vlr-logo">
+        <span class="card-footer-credit">made by yukky!</span>
+      </footer>
+
+    </div>
+  </section>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

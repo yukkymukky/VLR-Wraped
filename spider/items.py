@@ -10,6 +10,8 @@ class VlrItem(scrapy.Item):
     username = scrapy.Field()
     flag = scrapy.Field()
     flair = scrapy.Field()
+    registered_date = scrapy.Field()
+    year = scrapy.Field()
 
     total_posts = scrapy.Field()
 
@@ -18,7 +20,5 @@ class VlrItem(scrapy.Item):
     downvotes = scrapy.Field()
     longest_streak = scrapy.Field()
 
-    # list of dicts: {url, frags, text}
-    top_posts = scrapy.Field()  
-    # list of dicts: {username, reply_count}
-    biggest_fans = scrapy.Field() 
+    top_posts = scrapy.Field()
+    biggest_fans = scrapy.Field()
