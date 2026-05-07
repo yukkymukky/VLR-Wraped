@@ -19,7 +19,7 @@ ADDONS = {}
 #USER_AGENT = "spider (+http://www.yourdomain.com)"
 
 # Obey robots.txt rules
-ROBOTSTXT_OBEY = True
+ROBOTSTXT_OBEY = False
 
 # Concurrency and throttling settings
 #CONCURRENT_REQUESTS = 16
@@ -40,9 +40,11 @@ DOWNLOAD_DELAY = 1
 
 # Enable or disable spider middlewares
 # See https://docs.scrapy.org/en/latest/topics/spider-middleware.html
-#SPIDER_MIDDLEWARES = {
-#    "spider.middlewares.SpiderSpiderMiddleware": 543,
-#}
+# DOWNLOADER_MIDDLEWARES = {
+#     'spider.middlewares.ProxyMiddleware': 350,
+#     'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 400,
+#     'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware': None,
+# }
 
 # Enable or disable downloader middlewares
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
@@ -77,11 +79,11 @@ DOWNLOAD_DELAY = 1
 
 # Enable and configure HTTP caching (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html#httpcache-middleware-settings
-#HTTPCACHE_ENABLED = True
-#HTTPCACHE_EXPIRATION_SECS = 0
-#HTTPCACHE_DIR = "httpcache"
-#HTTPCACHE_IGNORE_HTTP_CODES = []
-#HTTPCACHE_STORAGE = "scrapy.extensions.httpcache.FilesystemCacheStorage"
+HTTPCACHE_ENABLED = True
+HTTPCACHE_EXPIRATION_SECS = 60
+HTTPCACHE_DIR = "httpcache"
+HTTPCACHE_IGNORE_HTTP_CODES = []
+HTTPCACHE_STORAGE = "scrapy.extensions.httpcache.FilesystemCacheStorage"
 
 # Set settings whose default value is deprecated to a future-proof value
 FEED_EXPORT_ENCODING = "utf-8"
