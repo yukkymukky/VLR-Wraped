@@ -1,4 +1,4 @@
-# VLR Card
+# VLR Wrapped!!!!!!!!!!!!!!!!
 
 Generate a wrapped-style stats card for any vlr.gg forum user.
 
