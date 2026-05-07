@@ -60,13 +60,9 @@ const initScrapeForm = () => {
     const submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
 
-    // Animated dots while waiting
-    let dotCount = 0;
-    const dotInterval = setInterval(() => {
-      dotCount = (dotCount + 1) % 4;
-      status.textContent = 'Scraping' + '.'.repeat(dotCount);
-      status.className = 'input-status';
-    }, 500);
+    // Spinner while waiting
+    status.innerHTML = '<span class="loader"></span>';
+    status.className = 'input-status';
 
     try {
       let url = `/api/scrape?username=${encodeURIComponent(username)}`;
@@ -99,13 +95,13 @@ const initScrapeForm = () => {
         }, 2000);
       });
 
-      status.textContent = '';
+      status.innerHTML = '';
       renderCard(data);
     } catch (err) {
+      status.innerHTML = '';
       status.textContent = err.message;
       status.className = 'input-status error';
     } finally {
-      clearInterval(dotInterval);
       submitBtn.disabled = false;
     }
   });
