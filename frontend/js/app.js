@@ -57,26 +57,56 @@ const initScrapeForm = () => {
     const year     = document.getElementById('yearInput').value.trim();
     if (!username) return;
 
-    status.textContent = 'Scraping… this may take a minute.';
-    status.className = 'input-status';
-    form.querySelector('button[type="submit"]').disabled = true;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+
+    // Animated dots while waiting
+    let dotCount = 0;
+    const dotInterval = setInterval(() => {
+      dotCount = (dotCount + 1) % 4;
+      status.textContent = 'Scraping' + '.'.repeat(dotCount);
+      status.className = 'input-status';
+    }, 500);
 
     try {
       let url = `/api/scrape?username=${encodeURIComponent(username)}`;
       if (year) url += `&year=${encodeURIComponent(year)}`;
-      const res = await fetch(url);
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Server error ${res.status}`);
+      const startRes = await fetch(url);
+      if (!startRes.ok) {
+        const err = await startRes.json().catch(() => ({}));
+        throw new Error(err.error || `Server error ${startRes.status}`);
       }
-      const data = await res.json();
+      const { job_id } = await startRes.json();
+
+      // Poll until done or error
+      const data = await new Promise((resolve, reject) => {
+        const poll = setInterval(async () => {
+          try {
+            const pollRes = await fetch(`/api/status/${job_id}`);
+            const job = await pollRes.json();
+            if (job.status === 'done') {
+              clearInterval(poll);
+              resolve(job.data);
+            } else if (job.status === 'error') {
+              clearInterval(poll);
+              reject(new Error(job.error || 'Spider failed'));
+            }
+            // still "running", keep polling
+          } catch (e) {
+            clearInterval(poll);
+            reject(e);
+          }
+        }, 2000);
+      });
+
       status.textContent = '';
       renderCard(data);
     } catch (err) {
       status.textContent = err.message;
       status.className = 'input-status error';
     } finally {
-      form.querySelector('button[type="submit"]').disabled = false;
+      clearInterval(dotInterval);
+      submitBtn.disabled = false;
     }
   });
 };
@@ -95,7 +125,7 @@ const truncate = (str, len) => {
   return str.length > len ? str.slice(0, len) + '…' : str;
 };
 
-const signed = (n) => (n >= 0 ? '+' : '') + n.toLocaleString();
+const signed = (n) => n == null ? '—' : (n >= 0 ? '+' : '') + n.toLocaleString();
 
 const renderCard = (data) => {
   renderHeader(data);
@@ -185,7 +215,7 @@ const renderMiniStats = (data) => {
 };
 
 const renderStats = (data) => {
-  document.getElementById('statTotalPosts').textContent = data.total_posts.toLocaleString();
+  document.getElementById('statTotalPosts').textContent = data.total_posts != null ? data.total_posts.toLocaleString() : '—';
 
   // posts per month sub-label
   const ppmEl = document.getElementById('statPostsPerMonth');
@@ -201,9 +231,9 @@ const renderStats = (data) => {
   document.getElementById('votesUp').style.width   = upPct + '%';
   document.getElementById('votesDown').style.width = downPct + '%';
   document.getElementById('votesSub').textContent =
-    `${data.upvotes.toLocaleString()} upvotes, ${Math.abs(data.downvotes).toLocaleString()} downvotes`;
+    `${data.upvotes != null ? data.upvotes.toLocaleString() : '—'} upvotes, ${data.downvotes != null ? Math.abs(data.downvotes).toLocaleString() : '—'} downvotes`;
 
-  document.getElementById('statStreak').textContent = data.longest_streak.toLocaleString() + (data.longest_streak === 1 ? ' DAY' : ' DAYS');
+  document.getElementById('statStreak').textContent = data.longest_streak != null ? data.longest_streak.toLocaleString() + (data.longest_streak === 1 ? ' DAY' : ' DAYS') : '—';
   document.getElementById('statActiveMonth').textContent =
     data.most_active_month ? `Most active in ${data.most_active_month}` : '';
 };
