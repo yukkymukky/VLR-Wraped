@@ -196,22 +196,23 @@ class UserPostsSpider(scrapy.Spider):
                 month_key = post_datetime.strftime('%B')
                 self.posts_by_month[month_key] = self.posts_by_month.get(month_key, 0) + 1
 
-            self.all_posts.append({'url': post_url, 'frags': frags, 'text': text})
+            self.all_posts.append({'url': post_url, 'frags': frags, 'text': text, 'date': post_datetime})
 
-            # write progress only if count grew (parallel requests can cause out-of-order appends)
-            try:
-                progress_path = os.path.join(_DATA_DIR, f'{self.username}.progress')
-                current = len(self.all_posts)
+            # write progress every 10 posts to avoid hammering disk
+            current = len(self.all_posts)
+            if current % 50 == 0:
                 try:
-                    with open(progress_path, 'r') as _pf:
-                        written = int(_pf.read().strip())
-                except (OSError, ValueError):
-                    written = 0
-                if current > written:
-                    with open(progress_path, 'w') as _pf:
-                        _pf.write(str(current))
-            except OSError:
-                pass
+                    progress_path = os.path.join(_DATA_DIR, f'{self.username}.progress')
+                    try:
+                        with open(progress_path, 'r') as _pf:
+                            written = int(_pf.read().strip())
+                    except (OSError, ValueError):
+                        written = 0
+                    if current > written:
+                        with open(progress_path, 'w') as _pf:
+                            _pf.write(str(current))
+                except OSError:
+                    pass
 
             # replies to this post (biggest fans)
             thread = post_author.xpath(
@@ -238,14 +239,19 @@ class UserPostsSpider(scrapy.Spider):
             yield response.follow(link, callback=self.parse_discussion)
 
     def _longest_streak(self):
-        """Longest consecutive streak of posts with frags > 0."""
-        best = streak = 0
-        for p in self.all_posts:
-            if p['frags'] > 0:
+        dates = sorted(set(
+            p['date'].date()
+            for p in self.all_posts if p.get('date')
+        ))
+        if not dates:
+            return 0
+        best = streak = 1
+        for i in range(1, len(dates)):
+            if (dates[i] - dates[i - 1]).days == 1:
                 streak += 1
                 best = max(best, streak)
             else:
-                streak = 0
+                streak = 1
         return best
 
     def closed(self, reason):
@@ -272,14 +278,10 @@ class UserPostsSpider(scrapy.Spider):
             top_posts=top5,
             biggest_fans=[{'username': u, 'reply_count': c} for u, c in top10_fans],
         )
-        import json, os
-        root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        data_dir = os.path.join(root, 'data')
-        os.makedirs(data_dir, exist_ok=True)
-        with open(os.path.join(data_dir, f'{self.username}.json'), 'w', encoding='utf-8') as f:
+        os.makedirs(_DATA_DIR, exist_ok=True)
+        with open(os.path.join(_DATA_DIR, f'{self.username}.json'), 'w', encoding='utf-8') as f:
             json.dump(dict(item), f, indent=2, default=str)
-        # clean up progress file
-        progress_file = os.path.join(data_dir, f'{self.username}.progress')
+        progress_file = os.path.join(_DATA_DIR, f'{self.username}.progress')
         try:
             os.remove(progress_file)
         except OSError:
