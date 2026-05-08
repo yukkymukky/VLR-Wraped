@@ -73,8 +73,8 @@ class UserPostsSpider(scrapy.Spider):
                 if approx_dt is not None:
                     year_start = datetime(self.year, 1, 1)
                     year_end   = datetime(self.year, 12, 31)
-                    # 60-day grace since vlr relative dates are fuzzy and can bleed across year boundaries
-                    if approx_dt + timedelta(days=60) < year_start:
+                    # 30-day grace since vlr relative dates are fuzzy and can bleed across year boundaries
+                    if approx_dt + timedelta(days=30) < year_start:
                         # too old even with grace - skip
                         continue
                     if approx_dt > year_end:
