@@ -241,6 +241,8 @@ const renderCard = (data) => {
 };
 
 const renderHeader = (data) => {
+  document.title = `${data.username}'s VLR Card`;
+
   const titleEl = document.getElementById('cardTitle');
   titleEl.textContent = data.year ? `VLR WRAPPED ${data.year}` : 'VLR WRAPPED LIFETIME';
 

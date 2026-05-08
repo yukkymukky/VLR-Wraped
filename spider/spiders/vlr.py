@@ -189,7 +189,7 @@ class UserPostsSpider(scrapy.Spider):
             ).get('')
             post_url = response.urljoin(post_url)
 
-            if frags <= 0:
+            if frags == 0:
                 self.dead_posts += 1
 
             if post_datetime:
