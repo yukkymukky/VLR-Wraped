@@ -15,8 +15,7 @@ Generate a wrapped-style stats card for any vlr.gg forum user.
 
 ```bash
 # clone however u wanat
-
-cd "vlr card"
+# then navigate to base directory
 uv sync
 ```
 
