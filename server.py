@@ -19,10 +19,17 @@ _jobs_lock = threading.Lock()
 
 
 def _run_scrape_job(job_id: str, cmd: list, cwd: str, out_file: str) -> None:
-    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    proc = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     with _jobs_lock:
-        if result.returncode != 0:
-            _jobs[job_id] = {"status": "error", "error": result.stderr[-2000:] or "Spider failed"}
+        if job_id in _jobs:
+            _jobs[job_id]["process"] = proc
+    stdout, stderr = proc.communicate()
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+        if job and job.get("status") == "cancelled":
+            return
+        if proc.returncode != 0:
+            _jobs[job_id] = {"status": "error", "error": stderr[-2000:] or "Spider failed"}
             return
         if not os.path.exists(out_file):
             _jobs[job_id] = {"status": "error", "error": "Spider finished but produced no output"}
@@ -83,7 +90,7 @@ def job_status(job_id):
         job = _jobs.get(job_id)
     if job is None:
         return jsonify({"error": "Unknown job"}), 404
-    result = dict(job)
+    result = {k: v for k, v in job.items() if k != "process"}
     if result.get("status") == "running":
         username = result.get("username", "")
         if username:
@@ -95,6 +102,43 @@ def job_status(job_id):
             except (OSError, ValueError):
                 pass
     return jsonify(result)
+
+
+@app.route("/api/cancel/<job_id>", methods=["POST"])
+def cancel_job(job_id):
+    with _jobs_lock:
+        job = _jobs.get(job_id)
+        if job is None:
+            return jsonify({"error": "Unknown job"}), 404
+        proc = job.get("process")
+        job["status"] = "cancelled"
+    if proc:
+        try:
+            proc.terminate()
+        except OSError:
+            pass
+    return jsonify({"ok": True})
+
+
+@app.route("/api/cached")
+def cached():
+    username = request.args.get("username", "").strip()
+    year     = request.args.get("year", "").strip()
+    if not username:
+        return jsonify({"error": "username required"}), 400
+    if not username.replace("-", "").replace("_", "").replace(".", "").isalnum():
+        return jsonify({"error": "Invalid username"}), 400
+    out_file = os.path.join(DATA_DIR, f"{username}.json")
+    if not os.path.exists(out_file):
+        return jsonify({"error": "not found"}), 404
+    try:
+        with open(out_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if year and str(data.get("year") or "") != year:
+            return jsonify({"error": "year mismatch"}), 404
+        return jsonify(data)
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
 
 
 # Main 

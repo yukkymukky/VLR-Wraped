@@ -27,6 +27,10 @@ CONCURRENT_REQUESTS_PER_DOMAIN = 32
 DOWNLOAD_DELAY = 0
 AUTOTHROTTLE_ENABLED = False
 
+# Prevent hanging on stalled connections
+DOWNLOAD_TIMEOUT = 15
+RETRY_TIMES = 0
+
 # Disable cookies (enabled by default)
 #COOKIES_ENABLED = False
 

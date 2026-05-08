@@ -161,6 +161,24 @@ textarea#jsonPaste {
   flex-shrink: 0;
 }
 
+.btn-cancel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-block);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.btn-cancel:hover {
+  color: var(--text);
+  border-color: var(--red);
+}
+
 .btn-upload {
   display: flex;
   align-items: center;

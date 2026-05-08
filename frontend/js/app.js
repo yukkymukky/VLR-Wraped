@@ -4,6 +4,7 @@ let logos = {};
 document.addEventListener('DOMContentLoaded', async () => {
   await Promise.all([loadCountries(), loadLogos()]);
   initScrapeForm();
+  await loadFromUrl();
 });
 
 const loadLogos = async () => {
@@ -34,6 +35,29 @@ const buildFlagImg = (name) => {
   const code = getCountryCode(name);
   if (!code) return '';
   return `<span class="fi fi-${code}" title="${name}"></span>`;
+};
+
+const loadFromUrl = async () => {
+  const params = new URLSearchParams(window.location.search);
+  const username = params.get('username') || '';
+  const year     = params.get('year') || '';
+  if (!username) return;
+
+  document.getElementById('usernameInput').value = username;
+  document.getElementById('yearInput').value = year;
+
+  const status = document.getElementById('scrapeStatus');
+  try {
+    let url = `/api/cached?username=${encodeURIComponent(username)}`;
+    if (year) url += `&year=${encodeURIComponent(year)}`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      renderCard(data);
+    }
+  } catch {
+    // silently ignore — user can manually re-generate
+  }
 };
 
 const initScrapeForm = () => {
@@ -67,14 +91,50 @@ const initScrapeForm = () => {
     const year     = document.getElementById('yearInput').value.trim();
     if (!username) return;
 
+    // Update URL so state survives a refresh
+    const params = new URLSearchParams();
+    params.set('username', username);
+    if (year) params.set('year', year);
+    window.history.pushState({}, '', '?' + params.toString());
+
     const submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     submitBtn.classList.add('loading');
     submitBtn.dataset.label = submitBtn.textContent;
     submitBtn.innerHTML = '<span class="loader"></span>';
 
+    // Inject cancel button right after the submit button
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'btn-cancel';
+    cancelBtn.title = 'Cancel';
+    cancelBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`;
+    submitBtn.insertAdjacentElement('afterend', cancelBtn);
+
     status.textContent = '';
     status.className = 'input-status';
+
+    let currentJobId = null;
+    let pollInterval = null;
+    let countRaf     = null;
+
+    const resetForm = () => {
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('loading');
+      submitBtn.textContent = submitBtn.dataset.label;
+      cancelBtn.remove();
+    };
+
+    cancelBtn.onclick = async () => {
+      if (pollInterval) clearInterval(pollInterval);
+      if (countRaf) cancelAnimationFrame(countRaf);
+      if (currentJobId) {
+        try { await fetch(`/api/cancel/${currentJobId}`, { method: 'POST' }); } catch {}
+      }
+      status.textContent = 'Cancelled.';
+      status.className = 'input-status';
+      resetForm();
+    };
 
     try {
       let url = `/api/scrape?username=${encodeURIComponent(username)}`;
@@ -85,11 +145,11 @@ const initScrapeForm = () => {
         throw new Error(err.error || `Server error ${startRes.status}`);
       }
       const { job_id } = await startRes.json();
+      currentJobId = job_id;
 
       // Poll until done or error
       let displayedCount = 0;
       let targetCount    = 0;
-      let countRaf       = null;
 
       const startTicker = () => {
         const tick = () => {
@@ -111,23 +171,27 @@ const initScrapeForm = () => {
       startTicker();
 
       const data = await new Promise((resolve, reject) => {
-        const poll = setInterval(async () => {
+        pollInterval = setInterval(async () => {
           try {
             const pollRes = await fetch(`/api/status/${job_id}`);
             const job = await pollRes.json();
             if (job.status === 'done') {
-              clearInterval(poll);
+              clearInterval(pollInterval);
               cancelAnimationFrame(countRaf);
               resolve(job.data);
             } else if (job.status === 'error') {
-              clearInterval(poll);
+              clearInterval(pollInterval);
               cancelAnimationFrame(countRaf);
               reject(new Error(job.error || 'Spider failed'));
+            } else if (job.status === 'cancelled') {
+              clearInterval(pollInterval);
+              cancelAnimationFrame(countRaf);
+              reject(new Error('cancelled'));
             } else {
               if (job.posts_scraped != null) onPoll(job.posts_scraped);
             }
           } catch (e) {
-            clearInterval(poll);
+            clearInterval(pollInterval);
             cancelAnimationFrame(countRaf);
             reject(e);
           }
@@ -137,13 +201,13 @@ const initScrapeForm = () => {
       status.innerHTML = '';
       renderCard(data);
     } catch (err) {
-      status.innerHTML = '';
-      status.textContent = err.message;
-      status.className = 'input-status error';
+      if (err.message !== 'cancelled') {
+        status.innerHTML = '';
+        status.textContent = err.message;
+        status.className = 'input-status error';
+      }
     } finally {
-      submitBtn.disabled = false;
-      submitBtn.classList.remove('loading');
-      submitBtn.textContent = submitBtn.dataset.label;
+      resetForm();
     }
   });
 };
