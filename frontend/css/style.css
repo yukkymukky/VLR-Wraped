@@ -136,12 +136,30 @@ textarea#jsonPaste {
   font-size: 0.875rem;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, padding 0.15s, min-width 0.15s;
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 100px;
 }
 
 .btn-submit:hover { opacity: 0.85; }
 .btn-submit:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-submit.loading {
+  padding: 10px;
+  min-width: 44px;
+  pointer-events: none;
+}
+
+.btn-submit .loader {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.35);
+  border-bottom-color: #fff;
+  flex-shrink: 0;
+}
 
 .btn-upload {
   display: flex;

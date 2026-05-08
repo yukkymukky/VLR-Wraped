@@ -59,9 +59,11 @@ const initScrapeForm = () => {
 
     const submitBtn = form.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
+    submitBtn.classList.add('loading');
+    submitBtn.dataset.label = submitBtn.textContent;
+    submitBtn.innerHTML = '<span class="loader"></span>';
 
-    // Spinner while waiting
-    status.innerHTML = '<span class="loader"></span>';
+    status.textContent = '';
     status.className = 'input-status';
 
     try {
@@ -103,6 +105,8 @@ const initScrapeForm = () => {
       status.className = 'input-status error';
     } finally {
       submitBtn.disabled = false;
+      submitBtn.classList.remove('loading');
+      submitBtn.textContent = submitBtn.dataset.label;
     }
   });
 };
