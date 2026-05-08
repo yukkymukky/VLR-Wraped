@@ -188,6 +188,7 @@ textarea#jsonPaste {
   font-size: 0.8rem;
   color: var(--text-muted);
   min-height: 1.2em;
+  font-variant-numeric: tabular-nums;
 }
 
 .input-status.error {

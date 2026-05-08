@@ -69,7 +69,7 @@ def scrape():
 
     job_id = str(uuid.uuid4())
     with _jobs_lock:
-        _jobs[job_id] = {"status": "running"}
+        _jobs[job_id] = {"status": "running", "username": username}
 
     t = threading.Thread(target=_run_scrape_job, args=(job_id, cmd, ROOT, out_file), daemon=True)
     t.start()
@@ -83,7 +83,18 @@ def job_status(job_id):
         job = _jobs.get(job_id)
     if job is None:
         return jsonify({"error": "Unknown job"}), 404
-    return jsonify(job)
+    result = dict(job)
+    if result.get("status") == "running":
+        username = result.get("username", "")
+        if username:
+            progress_file = os.path.join(DATA_DIR, f"{username}.progress")
+            try:
+                with open(progress_file, "r") as pf:
+                    parts = pf.read().strip().split(":")
+                    result["posts_scraped"] = int(parts[0])
+            except (OSError, ValueError):
+                pass
+    return jsonify(result)
 
 
 # Main 

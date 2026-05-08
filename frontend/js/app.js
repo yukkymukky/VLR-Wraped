@@ -1,9 +1,19 @@
 let countries = [];
+let logos = {};
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadCountries();
+  await Promise.all([loadCountries(), loadLogos()]);
   initScrapeForm();
 });
+
+const loadLogos = async () => {
+  try {
+    const res = await fetch('logos.json');
+    logos = await res.json();
+  } catch (err) {
+    console.warn('Could not load logos.json', err);
+  }
+};
 
 const loadCountries = async () => {
   try {
@@ -77,6 +87,29 @@ const initScrapeForm = () => {
       const { job_id } = await startRes.json();
 
       // Poll until done or error
+      let displayedCount = 0;
+      let targetCount    = 0;
+      let countRaf       = null;
+
+      const startTicker = () => {
+        const tick = () => {
+          if (targetCount > displayedCount) {
+            displayedCount += (targetCount - displayedCount) * 0.06;
+            if (targetCount - displayedCount < 0.5) displayedCount = targetCount;
+            const shown = Math.floor(displayedCount);
+            status.textContent = `Scraped ${shown} post${shown === 1 ? '' : 's'} so far…`;
+          }
+          countRaf = requestAnimationFrame(tick);
+        };
+        countRaf = requestAnimationFrame(tick);
+      };
+
+      const onPoll = (newCount) => {
+        if (newCount > targetCount) targetCount = newCount;
+      };
+
+      startTicker();
+
       const data = await new Promise((resolve, reject) => {
         const poll = setInterval(async () => {
           try {
@@ -84,14 +117,18 @@ const initScrapeForm = () => {
             const job = await pollRes.json();
             if (job.status === 'done') {
               clearInterval(poll);
+              cancelAnimationFrame(countRaf);
               resolve(job.data);
             } else if (job.status === 'error') {
               clearInterval(poll);
+              cancelAnimationFrame(countRaf);
               reject(new Error(job.error || 'Spider failed'));
+            } else {
+              if (job.posts_scraped != null) onPoll(job.posts_scraped);
             }
-            // still "running", keep polling
           } catch (e) {
             clearInterval(poll);
+            cancelAnimationFrame(countRaf);
             reject(e);
           }
         }, 2000);
@@ -148,8 +185,11 @@ const renderHeader = (data) => {
 
   const flairEl = document.getElementById('cardFlair');
   if (data.flair) {
-    // flair URLs from vlr are protocol-relative (//owcdn.net/...)
-    flairEl.src = data.flair.startsWith('//') ? 'https:' + data.flair : data.flair;
+    // look up dark logo by matching scraped flair URL against logos.json
+    const scraped = data.flair.replace(/^https?:/, '');
+    const match = Object.values(logos).find(v => v.light_logo === scraped || v.dark_logo === scraped);
+    const resolved = match?.dark_logo || scraped;
+    flairEl.src = resolved.startsWith('//') ? 'https:' + resolved : resolved;
     flairEl.hidden = false;
   } else {
     flairEl.hidden = true;

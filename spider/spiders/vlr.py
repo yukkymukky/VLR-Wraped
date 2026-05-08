@@ -1,7 +1,12 @@
 import re
+import json
+import os
 import scrapy
 from spider.items import VlrItem
 from datetime import datetime, timedelta
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+_DATA_DIR = os.path.join(_ROOT, 'data')
 
 
 class UserPostsSpider(scrapy.Spider):
@@ -26,6 +31,7 @@ class UserPostsSpider(scrapy.Spider):
         self.registered_date = None
         self.dead_posts = 0
         self.posts_by_month = {}
+        self.current_page = 0
 
     async def start(self):
         yield scrapy.Request(self.start_urls[0], callback=self.parse_profile)
@@ -49,6 +55,7 @@ class UserPostsSpider(scrapy.Spider):
         )
 
     async def parse_user_page(self, response, page=1):
+        self.current_page = page
         cards = response.css('div.wf-card.ge-text-light')
         all_too_old = True
 
@@ -66,8 +73,8 @@ class UserPostsSpider(scrapy.Spider):
                 if approx_dt is not None:
                     year_start = datetime(self.year, 1, 1)
                     year_end   = datetime(self.year, 12, 31)
-                    # 90-day grace since vlr relative dates are fuzzy and can bleed across year boundaries
-                    if approx_dt + timedelta(days=90) < year_start:
+                    # 60-day grace since vlr relative dates are fuzzy and can bleed across year boundaries
+                    if approx_dt + timedelta(days=60) < year_start:
                         # too old even with grace - skip
                         continue
                     if approx_dt > year_end:
@@ -191,6 +198,21 @@ class UserPostsSpider(scrapy.Spider):
 
             self.all_posts.append({'url': post_url, 'frags': frags, 'text': text})
 
+            # write progress only if count grew (parallel requests can cause out-of-order appends)
+            try:
+                progress_path = os.path.join(_DATA_DIR, f'{self.username}.progress')
+                current = len(self.all_posts)
+                try:
+                    with open(progress_path, 'r') as _pf:
+                        written = int(_pf.read().strip())
+                except (OSError, ValueError):
+                    written = 0
+                if current > written:
+                    with open(progress_path, 'w') as _pf:
+                        _pf.write(str(current))
+            except OSError:
+                pass
+
             # replies to this post (biggest fans)
             thread = post_author.xpath(
                 "./ancestor::div[contains(@class,'threading')]"
@@ -256,3 +278,9 @@ class UserPostsSpider(scrapy.Spider):
         os.makedirs(data_dir, exist_ok=True)
         with open(os.path.join(data_dir, f'{self.username}.json'), 'w', encoding='utf-8') as f:
             json.dump(dict(item), f, indent=2, default=str)
+        # clean up progress file
+        progress_file = os.path.join(data_dir, f'{self.username}.progress')
+        try:
+            os.remove(progress_file)
+        except OSError:
+            pass
