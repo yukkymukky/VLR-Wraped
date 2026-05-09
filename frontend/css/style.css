@@ -487,11 +487,12 @@ textarea#jsonPaste {
 .fan-count {
   background: var(--red);
   color: black;
-  font-size: 0.75rem;
+  font-size: 0.6rem;
   font-weight: 700;
-  border-radius: 40%;
-  width: 20px;
+  border-radius: 999px;
+  min-width: 20px;
   height: 20px;
+  padding: 0 5px;
   display: flex;
   align-items: center;
   justify-content: center;
