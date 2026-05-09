@@ -189,9 +189,6 @@ class UserPostsSpider(scrapy.Spider):
             ).get('')
             post_url = response.urljoin(post_url)
 
-            if frags == 0:
-                self.dead_posts += 1
-
             if post_datetime:
                 month_key = post_datetime.strftime('%B')
                 self.posts_by_month[month_key] = self.posts_by_month.get(month_key, 0) + 1
@@ -221,6 +218,9 @@ class UserPostsSpider(scrapy.Spider):
             )
             reply_authors = thread.css('a.post-header-author::text').getall()
             reply_ids = thread.css('div.report-form::attr(data-post-id)').getall()
+
+            if frags == 0 and not reply_authors:
+                self.dead_posts += 1
 
             for reply_id, reply_username in zip(reply_ids, reply_authors):
                 reply_username = reply_username.strip()
